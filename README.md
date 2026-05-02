@@ -1,4 +1,4 @@
-# Trabalho-Redes
+# Trabalho-Paralela
 
 
 
