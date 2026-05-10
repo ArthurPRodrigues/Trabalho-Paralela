@@ -7,7 +7,7 @@
  *   Adan Samuel Prüss      (2410089)
  *   Roberto Gabriel Ferreira (23100739)
  *
- * Compilar: gcc -Wall -O2 -o vendas main.c padrao1-arthur.c thread_pool.c future.c -lpthread
+ * Compilar: gcc -Wall -O2 -o vendas main.c produtor-consumidor.c thread_pool.c future.c -lpthread
  */
 
 #include <stdio.h>
