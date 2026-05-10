@@ -57,13 +57,14 @@ static void log_msg(const char *fmt, ...) {
     pthread_mutex_unlock(&print_lock);
 }
 
-/* ── Etapas de processamento ── */
-static void *financeiro_async(void *arg) {
-    Pedido *p = (Pedido *)arg;
-    usleep(80000 + rand() % 150000);
-    if (falha(FALHA_FINANCEIRO_PCT)) { p->status = FINANCEIRO_NEGADO; return (void *)0; }
-    return (void *)1;
-}
+// /* ── Etapas de processamento ── */
+// static void *financeiro_async(void *arg) {
+//     Pedido *p = (Pedido *)arg;
+//     usleep(80000 + rand() % 150000);
+//     if (falha(FALHA_FINANCEIRO_PCT)) { p->status = FINANCEIRO_NEGADO; return (void *)0; }
+//     return (void *)1;
+// }
+
 
 static void financeiro_task(void *arg) {
     FinanceiroArgs *fa = (FinanceiroArgs *)arg;
