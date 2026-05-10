@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include <stdarg.h>
 
-#include "producer_consumer.h"
+#include "padrao1-arthur.h"
 #include "thread_pool.h"
 #include "async.h"
 
