@@ -5,6 +5,8 @@
 // -> duas variaveis de condições (para que as threads durmam quando não houver trabalho)
 #include <string.h>
 #include <pthread.h>
+#include <stdio.h>
+
 //definindo um pedido 
 typedef struct {
     int id;
@@ -12,75 +14,107 @@ typedef struct {
     char product[50];
 } Order;
 
-// implementando um array
+// tamanho da fila
 #define QUEUE_SIZE 10
-// implementando a fila 
 
+// implementando a fila 
 typedef struct {
     void *items[QUEUE_SIZE]; 
     int start;
     int end;
     int count;
+    int closed; // 1 = fila fechada, 0 = aberta
 
     pthread_mutex_t lock;
     pthread_cond_t  not_full;
     pthread_cond_t  not_empty;
+} BoundedQueue;
 
-} Queue;
+// inicializa a fila
+void bq_init(BoundedQueue *queue) {
+    queue->start = 0;
+    queue->end = 0;
+    queue->count = 0;
+    queue->closed = 0;
 
-//função para isnerir na fila
-void queue_insert(Queue *queue, void *item) {
+    pthread_mutex_init(&queue->lock, NULL);
+    pthread_cond_init(&queue->not_full, NULL);
+    pthread_cond_init(&queue->not_empty, NULL);
+}
+
+// insere item na fila
+void bq_put(BoundedQueue *queue, void *item) {
     pthread_mutex_lock(&queue->lock);
 
     while (queue->count == QUEUE_SIZE) {
-        pthread_cond_wait(&queue->not_full, &queue->lock);//validar melhor isso daqui
+        pthread_cond_wait(&queue->not_full, &queue->lock);
     }
 
-    queue->items[queue->end] = item; //coloca o order (novo pedido) como ultimo item da fila (queue->end)
-    queue->end = (queue->end + 1) % QUEUE_SIZE; //fila circular ao invés de estourar
+    queue->items[queue->end] = item;
+    queue->end = (queue->end + 1) % QUEUE_SIZE;
     queue->count++;
 
     pthread_cond_signal(&queue->not_empty);
     pthread_mutex_unlock(&queue->lock);
 }
 
-
-void *remove_queue(Queue *queue) {
+// retira item da fila
+void *bq_get(BoundedQueue *queue) {
     pthread_mutex_lock(&queue->lock);
 
-    while (queue->count == 0) {
+    while (queue->count == 0 && !queue->closed) {
         pthread_cond_wait(&queue->not_empty, &queue->lock);
     }
 
-    void *item = queue->items[queue->start]; //salva primeiro item da fgila
-    queue->start = (queue->start + 1) % QUEUE_SIZE; // avança o start circularmente
+    // fila fechada e vazia
+    if (queue->count == 0) {
+        pthread_mutex_unlock(&queue->lock);
+        return NULL;
+    }
+
+    void *item = queue->items[queue->start];
+    queue->start = (queue->start + 1) % QUEUE_SIZE;
     queue->count--;
 
     pthread_cond_signal(&queue->not_full);
-    pthread_mutex_unlock(&queue->lock); // destrava mutex
+    pthread_mutex_unlock(&queue->lock);
 
     return item;
 }
 
-void *producer_thread(void *arg) {
-    Queue *queue = (Queue *)arg; //informa tipo do argumento
+// fecha a fila e acorda todas as threads dormindo
+void bq_close(BoundedQueue *queue) {
+    pthread_mutex_lock(&queue->lock);
+    queue->closed = 1;
+    pthread_cond_broadcast(&queue->not_empty);
+    pthread_cond_broadcast(&queue->not_full);
+    pthread_mutex_unlock(&queue->lock);
+}
 
-    //produtor gera pedido
+// libera os recursos da fila
+void bq_destroy(BoundedQueue *queue) {
+    pthread_mutex_destroy(&queue->lock);
+    pthread_cond_destroy(&queue->not_full);
+    pthread_cond_destroy(&queue->not_empty);
+}
+
+void *producer_thread(void *arg) {
+    BoundedQueue *queue = (BoundedQueue *)arg;
+
     Order order;
     order.id = 1;
     order.client_id = 123;
     strcpy(order.product, "Produto 1");
 
-    //chama função para inserir pedido na fila
-    queue_insert(queue, &order);
+    bq_put(queue, &order);
 
     return NULL;
 }
 
 void *consumer_thread(void *arg) {
-    Queue *queue = (Queue *)arg;
+    BoundedQueue *queue = (BoundedQueue *)arg;
 
-    Order *order = (Order *)remove_queue(queue);
+    Order *order = (Order *)bq_get(queue);
     printf("Processado a order #%d - produto: %s\n", order->id, order->product);
 
     return NULL;
