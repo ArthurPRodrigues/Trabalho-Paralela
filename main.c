@@ -18,8 +18,8 @@
 #include <stdarg.h>
 
 #include "padrao1-arthur.h"
-#include "thread_pool.h"
-#include "async.h"
+#include "future.h"
+#include <stdint.h>
 
 /* ================================================================== */
 /*  Configurações                                                       */
