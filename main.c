@@ -25,7 +25,7 @@
 /* ── Configurações ── */
 #define NUM_CLIENTES        3
 #define PEDIDOS_POR_CLIENTE 4
-#define POOL_WORKERS        4
+#define POOL_WORKERS        8
 #define FALHA_CADASTRO_PCT  15
 #define FALHA_FINANCEIRO_PCT 20
 #define FALHA_LOGISTICA_PCT 10
@@ -37,6 +37,8 @@ static const char *produtos[] = { "Notebook Dell", "Monitor LG", "Teclado Mecân
 #define NUM_PRODUTOS (int)(sizeof(produtos)/sizeof(produtos[0]))
 
 typedef struct { int id, cliente_id; char produto[64]; double valor; Status status; } Pedido;
+
+typedef struct { Pedido *pedido; Future *future; } FinanceiroArgs;
 
 /* ── Globals ── */
 static BoundedQueue     fila_pedidos;
@@ -63,6 +65,22 @@ static void *financeiro_async(void *arg) {
     return (void *)1;
 }
 
+static void financeiro_task(void *arg) {
+    FinanceiroArgs *fa = (FinanceiroArgs *)arg;
+    Pedido *p = fa->pedido;
+
+    usleep(80000 + rand() % 150000);
+
+    if (falha(FALHA_FINANCEIRO_PCT)) {
+        p->status = FINANCEIRO_NEGADO;
+        future_set(fa->future, (void *)0);
+    } else {
+        future_set(fa->future, (void *)1);
+    }
+
+    free(fa);
+}
+
 static void processar_pedido(void *arg) {
     Pedido *p = (Pedido *)arg;
     log_msg("[Pedido #%03d] Iniciando | Cliente %d | %s | R$%.2f\n", p->id, p->cliente_id, p->produto, p->valor);
@@ -75,9 +93,20 @@ static void processar_pedido(void *arg) {
     /* (b) Financeiro via Future */
     Future fut;
     future_init(&fut);
-    tp_submit(&pool, (void (*)(void *))financeiro_async, p);
+
+    FinanceiroArgs *fa = malloc(sizeof(FinanceiroArgs));
+    fa->pedido = p;
+    fa->future = &fut;
+
+    tp_submit(&pool, financeiro_task, fa);
+
     log_msg("[Pedido #%03d] ↻ Aguardando financeiro...\n", p->id);
-    if (!(long)future_get(&fut)) { future_destroy(&fut); goto fim; }
+
+    if (!(long)future_get(&fut)) {
+        future_destroy(&fut);
+        goto fim;
+    }
+
     future_destroy(&fut);
     log_msg("[Pedido #%03d] ✓ Financeiro aprovado\n", p->id);
 
