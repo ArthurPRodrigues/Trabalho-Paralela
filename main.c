@@ -19,6 +19,7 @@
 
 #include "padrao1-arthur.h"
 #include "future.h"
+#include "thread_pool.h"
 #include <stdint.h>
 
 /* ================================================================== */
