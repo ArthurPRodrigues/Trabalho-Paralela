@@ -15,27 +15,28 @@ de projeto para programação paralela com Pthreads.
 
 ## Padrões de Projeto Utilizados
 
-### 1. Produtor/Consumidor (`producer_consumer.h/c`)
-Implementa uma **fila bloqueante thread-safe** (bounded buffer).
-- **Produtores** (threads de clientes) inserem pedidos na fila.
-- **Consumidor** (thread dispatcher) retira pedidos e os despacha.
-- Usa `pthread_mutex_t` para exclusão mútua e **duas variáveis de
-  condição** (`not_full`, `not_empty`) para bloqueio eficiente —
-  diferente de busy-waiting, as threads dormem até haver espaço/item.
-- A fila é **genérica** (`void*`) e pode ser reusada em qualquer projeto.
+---
 
-Claro! Vou ler os arquivos relevantes antes de escrever.Aqui está a seção para o README, espelhando o estilo da seção de Future/Promise:
+### 1. Produtor/Consumidor (`produtor-consumidor.h` / `produtor-consumidor.c`)
+
+Este módulo implementa o padrão *Produtor/Consumidor* por meio de uma fila circular bloqueante de tamanho fixo (`BoundedQueue`). Produtores inserem itens na fila e consumidores os retiram, com ambos os lados dormindo automaticamente quando a fila está cheia ou vazia — eliminando busy-waiting.
+
+- `bq_init(queue)`: Inicializa a fila circular, zerando os índices e contadores e preparando o mutex e as duas putras variáveis de condição (`not_full`, `not_empty`) usadas para coordenar produtores e consumidores.
+- `bq_put(queue, item)`: Insere um item na fila. Se ela estiver cheia, bloqueia o produtor com `pthread_cond_wait` sobre `not_full` até que um consumidor libere espaço. Após a inserção, sinaliza `not_empty` para acordar um consumidor ocioso.
+- `bq_get(queue)`: Retira o item mais antigo da fila (FIFO). Se ela estiver vazia e ainda aberta, bloqueia o consumidor com `pthread_cond_wait` sobre `not_empty` até que um produtor insira algo. Retorna `NULL` quando a fila está simultaneamente vazia e fechada, indicando ao consumidor que não há mais trabalho.
+- `bq_close(queue)`: Marca a fila como encerrada e dispara `pthread_cond_broadcast` em ambas as variáveis de condição, garantindo que todas as threads bloqueadas acordem e possam verificar o estado de encerramento.
+- `bq_destroy(queue)`: Libera o mutex e outras variáveis de condição alocados pelo sistema, prevenindo vazamentos de recursos após o uso da fila.
 
 ---
 
 ### 2. Pool de Threads (`thread_pool.h` / `thread_pool.c`)
 
-Este módulo implementa o padrão *Thread Pool*, mantendo um conjunto fixo de threads trabalhadoras que ficam dormentes até haver tarefas disponíveis. Isso evita o custo de criação e destruição de threads a cada operação, reutilizando-as ao longo de toda a execução.
+Este módulo implementa o padrão *Thread Pool*, mantendo um conjunto fixo de threads 'workers' que ficam dormentes até terem tarefas disponíveis. Isso evita o custo de criação e destruição de threads a cada operação, reutilizando-as ao longo de toda a execução.
 
-- `tp_init(pool, num_threads, capacity)`: Inicializa a estrutura do pool, criando as `num_threads` threads trabalhadoras e preparando o Mutex e as Variáveis de Condição necessárias para a sincronização da fila interna de tarefas.
+- `tp_init(pool, num_threads, capacity)`: Inicializa a estrutura do pool, criando as `num_threads` threads workers e preparando o mutex e as condvar necessárias para a sincronização da fila interna de tarefas.
 - `tp_submit(pool, function, arg)`: Enfileira uma nova tarefa, representada como um par `(função, argumento)`, e dispara um sinal (`pthread_cond_signal`) para acordar um worker ocioso, que então assume a execução da tarefa.
 - `tp_shutdown(pool)`: Aguarda o esvaziamento completo da fila de tarefas usando `pthread_cond_wait` sobre `all_done` e, em seguida, sinaliza todas as threads com `pthread_cond_broadcast` para que encerrem. Realiza `pthread_join` em cada worker, garantindo que nenhuma tarefa seja perdida antes do término.
-- `tp_destroy(pool)`: Libera os recursos de sincronização (mutex e variáveis de condição) e a memória alocada para o vetor de threads, prevenindo vazamentos de recursos.
+- `tp_destroy(pool)`: Libera os recursos de sincronização (mutex e codnvar) e a memória alocada para o vetor de threads, prevenindo vazamentos de recursos.
 
 ### 3. Future/Promise (`future.h` / `future.c`)
 Este módulo implementa o padrão Future, permitindo que uma operação seja executada em segundo plano e seu resultado seja recuperado posteriormente, adiando o bloqueio da thread até o momento em que o dado é estritamente necessário.
