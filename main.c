@@ -23,9 +23,9 @@
 
 
 /* ── Configurações ── */
-#define NUM_CLIENTES        3
+#define NUM_CLIENTES        5
 #define PEDIDOS_POR_CLIENTE 4
-#define POOL_WORKERS        2
+#define POOL_WORKERS        4
 #define FALHA_CADASTRO_PCT  15
 #define FALHA_FINANCEIRO_PCT 20
 #define FALHA_LOGISTICA_PCT 10
