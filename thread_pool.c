@@ -1,22 +1,13 @@
-/*
- * thread_pool.c
- *
- * Implementação do padrão Pool de Threads.
- */
-
 #include <stdlib.h>
 #include "thread_pool.h"
 
-/* =========================================================================
- * FUNÇÃO INTERNA: loop de cada worker
- *
- * Cada thread fica neste loop até o pool encerrar:
- *   1. Trava o mutex
- *   2. Se não há tarefas, dorme (libera o mutex enquanto dorme)
- *   3. Acorda, pega uma tarefa, destrava o mutex
- *   4. Executa a tarefa fora do lock
- *   5. Volta ao passo 1
- * ========================================================================= */
+/* --cada worker deve, até a pool acabar:
+ * Travar o mutex
+ * Se não tiver tarefas, dormir (libera o mutex enquanto dorme)
+ * Acordar, pegar uma tarefa, destravar o mutex
+ * Executar a tarefa fora do lock
+ * Volta ao passo 1
+ * */
 
 static void *tp_worker(void *arg) {
     ThreadPool *pool = (ThreadPool *)arg;
@@ -24,22 +15,17 @@ static void *tp_worker(void *arg) {
     while (1) {
         pthread_mutex_lock(&pool->lock);
 
-        /*
-         * Dorme enquanto não há tarefas e o pool ainda está ativo.
-         * pthread_cond_wait libera o mutex enquanto dorme e o retoma
-         * ao acordar — isso evita busy-waiting (loop sem parar).
-         */
         while (pool->task_count == 0 && !pool->shutdown) {
             pthread_cond_wait(&pool->has_task, &pool->lock);
         }
 
-        /* se o pool está encerrando e não há tarefas, sai do loop */
+        /* sai do loop se não tiver mais tarefas */
         if (pool->shutdown && pool->task_count == 0) {
             pthread_mutex_unlock(&pool->lock);
             break;
         }
 
-        /* pega a tarefa mais antiga da fila (FIFO) */
+        /* pega a tarefa mais antiga da fila */
         Task *task = pool->head;
         pool->head = task->next;
         if (pool->head == NULL) {
@@ -47,26 +33,20 @@ static void *tp_worker(void *arg) {
         }
         pool->task_count--;
 
-        /*
-         * Se a fila esvaziou, avisa tp_shutdown() que pode estar esperando.
-         */
+        /* avisa tp_shutdown() que pode estar esperando quando a fila ficar vazia.*/
         if (pool->task_count == 0) {
             pthread_cond_signal(&pool->all_done);
         }
 
         pthread_mutex_unlock(&pool->lock);
 
-        /* executa a tarefa FORA do lock para não bloquear as outras threads */
+        /* executa a tarefa FORA do mutex_lock, se não bloqueia as outras Threads */
         task->function(task->arg);
         free(task);
     }
 
     return NULL;
 }
-
-/* =========================================================================
- * tp_init
- * ========================================================================= */
 
 int tp_init(ThreadPool *pool, int num_threads, int capacity) {
     pool->head        = NULL;
@@ -92,9 +72,6 @@ int tp_init(ThreadPool *pool, int num_threads, int capacity) {
     return 0;
 }
 
-/* =========================================================================
- * tp_submit
- * ========================================================================= */
 
 void tp_submit(ThreadPool *pool, void (*function)(void *), void *arg) {
     Task *task     = malloc(sizeof(Task));
@@ -113,17 +90,10 @@ void tp_submit(ThreadPool *pool, void (*function)(void *), void *arg) {
     }
     pool->task_count++;
 
-    /*
-     * Acorda UM worker dormindo.
-     * Usamos signal (não broadcast) porque só chegou uma tarefa.
-     */
     pthread_cond_signal(&pool->has_task);
     pthread_mutex_unlock(&pool->lock);
 }
 
-/* =========================================================================
- * tp_shutdown
- * ========================================================================= */
 
 void tp_shutdown(ThreadPool *pool) {
     pthread_mutex_lock(&pool->lock);
@@ -144,10 +114,6 @@ void tp_shutdown(ThreadPool *pool) {
         pthread_join(pool->threads[i], NULL);
     }
 }
-
-/* =========================================================================
- * tp_destroy
- * ========================================================================= */
 
 void tp_destroy(ThreadPool *pool) {
     pthread_mutex_destroy(&pool->lock);
