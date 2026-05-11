@@ -35,13 +35,13 @@ Mantém um conjunto fixo de **N threads trabalhadoras** prontas.
 ### 3. Future/Promise (future.h / future.c)
 Este módulo implementa o padrão Future, permitindo que uma operação seja executada em segundo plano e seu resultado seja recuperado posteriormente, adiando o bloqueio da thread até o momento em que o dado é estritamente necessário.
 
-future_init(f): Inicializa a estrutura, preparando o Mutex e a Variável de Condição necessários para a sincronização entre threads.
+- `future_init(f)`: Inicializa a estrutura, preparando o Mutex e a Variável de Condição necessários para a sincronização entre threads.
 
-future_set(f, value): Define o resultado da operação. Esta função altera o estado para "pronto" e dispara um sinal (pthread_cond_broadcast) para acordar qualquer thread que esteja aguardando o valor.
+- `future_set(f, value)`: Define o resultado da operação. Esta função altera o estado para "pronto" e dispara um sinal (pthread_cond_broadcast) para acordar qualquer thread que esteja aguardando o valor.
 
-future_get(f): Atua como o ponto de sincronização. Se o valor já foi definido, retorna-o imediatamente; caso contrário, bloqueia a execução da thread chamadora usando pthread_cond_wait até que future_set seja invocado.
+- `future_get(f)`: Atua como o ponto de sincronização. Se o valor já foi definido, retorna-o imediatamente; caso contrário, bloqueia a execução da thread chamadora usando pthread_cond_wait até que future_set seja invocado.
 
-future_destroy(f): Realiza a limpeza dos recursos de sincronização (mutex e variável de condição) alocados pelo sistema, garantindo que não haja vazamento de recursos internos.  
+- `future_destroy(f)`: Realiza a limpeza dos recursos de sincronização (mutex e variável de condição) alocados pelo sistema, garantindo que não haja vazamento de recursos internos.  
 
 ---
 
