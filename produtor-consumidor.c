@@ -1,5 +1,4 @@
 //implementação do padrão 01 
-//para produtor-consumidor é preciso ter 3 etapas
 // -> uma fila compartilhada (vai ser um array)
 // -> um mutex (não permite que consumidor e produto acessem a lista ao mesmo tempo)
 // -> duas variaveis de condições (para que as threads durmam quando não houver trabalho)
@@ -7,12 +6,6 @@
 #include <pthread.h>
 #include <stdio.h>
 
-//definindo um pedido 
-typedef struct {
-    int id;
-    int client_id;
-    char product[50];
-} Order;
 
 // tamanho da fila
 #define QUEUE_SIZE 10
@@ -96,26 +89,4 @@ void bq_destroy(BoundedQueue *queue) {
     pthread_mutex_destroy(&queue->lock);
     pthread_cond_destroy(&queue->not_full);
     pthread_cond_destroy(&queue->not_empty);
-}
-
-void *producer_thread(void *arg) {
-    BoundedQueue *queue = (BoundedQueue *)arg;
-
-    Order order;
-    order.id = 1;
-    order.client_id = 123;
-    strcpy(order.product, "Produto 1");
-
-    bq_put(queue, &order);
-
-    return NULL;
-}
-
-void *consumer_thread(void *arg) {
-    BoundedQueue *queue = (BoundedQueue *)arg;
-
-    Order *order = (Order *)bq_get(queue);
-    printf("Processado a order #%d - produto: %s\n", order->id, order->product);
-
-    return NULL;
 }
