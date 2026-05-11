@@ -75,6 +75,15 @@ make
 make run
 # ou
 ./vendas
+
+ou
+
+# Compilar
+gcc -Wall -O2 -o vendas main.c produtor-consumidor.c thread_pool.c future.c -lpthread
+
+# Executar
+
+./vendas
 ```
 
 ---
