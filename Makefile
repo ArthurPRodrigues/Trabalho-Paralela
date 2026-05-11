@@ -1,6 +1,6 @@
 CC      = gcc
-CFLAGS  = -Wall -Wextra -O2 -g -pthread
-SRCS    = main.c producer_consumer.c thread_pool.c async.c
+CFLAGS  = -Wall -O2 -g -pthread
+SRCS    = main.c produtor-consumidor.c thread_pool.c future.c
 OBJS    = $(SRCS:.c=.o)
 TARGET  = vendas
 
