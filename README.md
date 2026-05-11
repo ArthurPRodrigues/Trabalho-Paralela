@@ -24,15 +24,20 @@ Implementa uma **fila bloqueante thread-safe** (bounded buffer).
   diferente de busy-waiting, as threads dormem até haver espaço/item.
 - A fila é **genérica** (`void*`) e pode ser reusada em qualquer projeto.
 
-### 2. Pool de Threads (`thread_pool.h/c`)
-Mantém um conjunto fixo de **N threads trabalhadoras** prontas.
-- Evita o custo de criação/destruição de threads por tarefa.
-- Tarefas são submetidas como par `(função, argumento)` e enfileiradas
-  internamente usando o próprio `BoundedQueue`.
-- Ao encerrar, `tp_shutdown` sinaliza a fila e faz `pthread_join` em
-  todos os workers — garantindo que nenhum pedido seja perdido.
+Claro! Vou ler os arquivos relevantes antes de escrever.Aqui está a seção para o README, espelhando o estilo da seção de Future/Promise:
 
-### 3. Future/Promise (future.h / future.c)
+---
+
+### 2. Pool de Threads (`thread_pool.h` / `thread_pool.c`)
+
+Este módulo implementa o padrão *Thread Pool*, mantendo um conjunto fixo de threads trabalhadoras que ficam dormentes até haver tarefas disponíveis. Isso evita o custo de criação e destruição de threads a cada operação, reutilizando-as ao longo de toda a execução.
+
+- `tp_init(pool, num_threads, capacity)`: Inicializa a estrutura do pool, criando as `num_threads` threads trabalhadoras e preparando o Mutex e as Variáveis de Condição necessárias para a sincronização da fila interna de tarefas.
+- `tp_submit(pool, function, arg)`: Enfileira uma nova tarefa, representada como um par `(função, argumento)`, e dispara um sinal (`pthread_cond_signal`) para acordar um worker ocioso, que então assume a execução da tarefa.
+- `tp_shutdown(pool)`: Aguarda o esvaziamento completo da fila de tarefas usando `pthread_cond_wait` sobre `all_done` e, em seguida, sinaliza todas as threads com `pthread_cond_broadcast` para que encerrem. Realiza `pthread_join` em cada worker, garantindo que nenhuma tarefa seja perdida antes do término.
+- `tp_destroy(pool)`: Libera os recursos de sincronização (mutex e variáveis de condição) e a memória alocada para o vetor de threads, prevenindo vazamentos de recursos.
+
+### 3. Future/Promise (`future.h` / `future.c`)
 Este módulo implementa o padrão Future, permitindo que uma operação seja executada em segundo plano e seu resultado seja recuperado posteriormente, adiando o bloqueio da thread até o momento em que o dado é estritamente necessário.
 
 - `future_init(f)`: Inicializa a estrutura, preparando o Mutex e a Variável de Condição necessários para a sincronização entre threads.
