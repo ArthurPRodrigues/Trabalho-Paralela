@@ -25,7 +25,7 @@
 /* ── Configurações ── */
 #define NUM_CLIENTES        3
 #define PEDIDOS_POR_CLIENTE 4
-#define POOL_WORKERS        8
+#define POOL_WORKERS        2
 #define FALHA_CADASTRO_PCT  15
 #define FALHA_FINANCEIRO_PCT 20
 #define FALHA_LOGISTICA_PCT 10
@@ -42,7 +42,8 @@ typedef struct { Pedido *pedido; Future *future; } FinanceiroArgs;
 
 /* ── Globals ── */
 static BoundedQueue     fila_pedidos;
-static ThreadPool       pool;
+static ThreadPool pool_processamento;
+static ThreadPool pool_financeiro;
 static pthread_mutex_t  print_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t  id_lock    = PTHREAD_MUTEX_INITIALIZER;
 static int              proximo_id = 1;
@@ -99,7 +100,7 @@ static void processar_pedido(void *arg) {
     fa->pedido = p;
     fa->future = &fut;
 
-    tp_submit(&pool, financeiro_task, fa);
+    tp_submit(&pool_financeiro, financeiro_task, fa);
 
     log_msg("[Pedido #%03d] ↻ Aguardando financeiro...\n", p->id);
 
@@ -127,7 +128,7 @@ static void *dispatcher(void *arg) {
     (void)arg;
     void *raw;
     while ((raw = bq_get(&fila_pedidos)) != NULL)
-        tp_submit(&pool, processar_pedido, raw);
+        tp_submit(&pool_processamento, processar_pedido, raw);
     return NULL;
 }
 
@@ -156,7 +157,8 @@ int main(void) {
     srand((unsigned)time(NULL));
 
     bq_init(&fila_pedidos);
-    tp_init(&pool, POOL_WORKERS, 40);
+    tp_init(&pool_processamento, POOL_WORKERS, 40);
+    tp_init(&pool_financeiro,  POOL_WORKERS, 40);
 
     pthread_t disp;
     pthread_create(&disp, NULL, dispatcher, NULL);
@@ -173,8 +175,11 @@ int main(void) {
     bq_close(&fila_pedidos);
     pthread_join(disp, NULL);
 
-    tp_shutdown(&pool);
-    tp_destroy(&pool);
+    tp_shutdown(&pool_processamento);
+    tp_shutdown(&pool_financeiro);
+
+    tp_destroy(&pool_processamento);
+    tp_destroy(&pool_financeiro);
     bq_destroy(&fila_pedidos);
 
     printf("\n=== Simulação encerrada ===\n");
